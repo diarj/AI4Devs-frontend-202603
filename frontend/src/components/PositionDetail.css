@@ -1,0 +1,25 @@
+.kanban-board {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  gap: 1rem;
+}
+
+.kanban-column {
+  min-width: 280px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .kanban-board {
+    flex-direction: column;
+    overflow-x: unset;
+  }
+
+  .kanban-column {
+    width: 100% !important;
+    min-width: unset;
+  }
+}

@@ -1,0 +1,153 @@
+# Quickstart & Validation Guide: Position Kanban Board
+
+**Feature**: `001-position-kanban-board`
+**Date**: 2026-06-18
+
+This guide documents how to run the system and validate that the feature works end-to-end.
+It is not an implementation guide — see `tasks.md` for implementation steps.
+
+---
+
+## Prerequisites
+
+| Requirement | Details |
+|-------------|---------|
+| Node.js ≥ 18 | `node --version` |
+| PostgreSQL running on port 5432 | With `LTIdb` database and credentials in `backend/.env` |
+| Backend seeded | `npx ts-node prisma/seed.ts` in `backend/` (creates 2 positions, 3 candidates, flows) |
+| `@hello-pangea/dnd` installed | `npm install @hello-pangea/dnd` in `frontend/` |
+
+---
+
+## Start Services
+
+```bash
+# Terminal 1 — Backend
+cd backend
+npm install
+npm run dev
+# Expected: "Server is running on port 3010"
+
+# Terminal 2 — Frontend
+cd frontend
+npm install
+npm start
+# Expected: browser opens at http://localhost:3000
+```
+
+---
+
+## Validation Scenarios
+
+### Scenario 1 — Navigate to the Board
+
+1. Open `http://localhost:3000/positions` in the browser.
+2. Verify the Positions page shows at least one position card.
+3. Click "Ver proceso" on any card.
+4. **Expected**: Browser navigates to `/positions/:id` (e.g., `/positions/1`).
+5. **Expected**: Page shows the position title as a heading.
+6. **Expected**: A back arrow / "← Posiciones" link is visible.
+
+### Scenario 2 — Board Renders Columns and Cards
+
+1. On the board page for position 1.
+2. **Expected**: One column per interview step in the position's flow, in `orderIndex`
+   ascending order.
+3. **Expected**: Each column header shows the step name (e.g., "Phone Screen").
+4. **Expected**: Each candidate appears as a card under their current phase column,
+   showing full name and average score (or "—" if no score).
+
+### Scenario 3 — Back Navigation
+
+1. On the board page, click the back arrow.
+2. **Expected**: Browser navigates back to `/positions`.
+
+### Scenario 4 — Drag-and-Drop Phase Change
+
+1. On the board page, find a candidate card in any column.
+2. Drag the card to a different column and drop it.
+3. **Expected**: Card appears immediately in the target column (optimistic update).
+4. Verify backend received the update:
+
+```bash
+# Check via curl (replace IDs with actual values from seed data)
+curl -X PUT http://localhost:3010/candidates/1 \
+  -H "Content-Type: application/json" \
+  -d '{"applicationId": 1, "currentInterviewStep": 2}'
+# Expected: 200 OK with updated application data
+```
+
+5. Refresh the page.
+6. **Expected**: Candidate appears in the new column (persisted).
+
+### Scenario 5 — Error Revert on API Failure
+
+1. Stop the backend server.
+2. On the board page, drag a card to a different column.
+3. **Expected**: Card reverts to its original column after the request fails.
+4. **Expected**: An error notification/banner is shown.
+5. Restart the backend; refresh — **Expected**: Candidate is still in the original column.
+
+### Scenario 6 — Empty Column
+
+1. Using seed data or by moving all candidates out of a column.
+2. **Expected**: Empty columns still render with the step name header.
+3. **Expected**: A placeholder message is shown (e.g., "No hay candidatos en esta fase").
+
+### Scenario 7 — Mobile Responsive Layout
+
+1. Open browser DevTools and set viewport to 375 × 812 px (iPhone 12 size).
+2. Navigate to the board page.
+3. **Expected**: Columns stack vertically; each column occupies the full screen width.
+4. **Expected**: No horizontal scrollbar at the viewport level.
+
+### Scenario 8 — Loading State
+
+1. In DevTools Network tab, enable "Slow 3G" throttling.
+2. Navigate to the board page.
+3. **Expected**: A loading indicator (spinner or skeleton) is visible while data loads.
+4. **Expected**: Board renders correctly once data arrives.
+
+---
+
+## Run Component Tests
+
+```bash
+cd frontend
+npm test -- --watchAll=false
+```
+
+**Expected**: All tests pass with zero failures, including:
+- `PositionDetail.test.tsx`
+- `KanbanBoard.test.tsx`
+- `KanbanColumn.test.tsx`
+- `CandidateCard.test.tsx`
+
+---
+
+## API Smoke Tests (manual curl)
+
+```bash
+# Get interview flow for position 1
+curl http://localhost:3010/position/1/interviewflow
+# Expected: 200 with positionName + interviewSteps array
+
+# Get candidates for position 1
+curl http://localhost:3010/position/1/candidates
+# Expected: 200 with array of { fullName, currentInterviewStep, averageScore, id, applicationId }
+
+# Update candidate 1 to step 2
+curl -X PUT http://localhost:3010/candidates/1 \
+  -H "Content-Type: application/json" \
+  -d '{"applicationId":1,"currentInterviewStep":2}'
+# Expected: 200 with { message, data }
+```
+
+---
+
+## References
+
+- API contracts: [contracts/position-board-api.md](./contracts/position-board-api.md)
+- Data model & TypeScript types: [data-model.md](./data-model.md)
+- Research (library choices, decisions): [research.md](./research.md)
+- Implementation tasks: `tasks.md` (generated by `/speckit-tasks`)
